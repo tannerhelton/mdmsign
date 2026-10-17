@@ -3,6 +3,7 @@
 mod certs;
 mod creds;
 mod notarize;
+mod pkg;
 mod sign;
 mod staple;
 mod verify;
@@ -18,6 +19,7 @@ pub fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         Config::load(cli.config.as_deref(), &ProcessEnv).map_err(mdmsign_core::Error::from)?;
     match cli.command {
         Command::Sign(args) => sign::run(args, &config),
+        Command::Pkg(args) => pkg::run(args, &config),
         Command::Notarize(args) => notarize::run(args, &config),
         Command::Staple(args) => staple::run(args),
         Command::Verify(args) => verify::run(args),
