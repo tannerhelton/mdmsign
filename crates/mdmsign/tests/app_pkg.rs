@@ -1,7 +1,7 @@
 //! `mdmsign pkg`: wrapping an installed app in a signed package.
 
 use assert_cmd::Command;
-use mdmsign_core::{CertKind, testutil};
+use mdmsign_core::testutil;
 use predicates::prelude::*;
 
 fn mdmsign() -> Command {
@@ -59,7 +59,7 @@ fn pkg_rejects_non_apps_before_asking_for_credentials() {
 fn pkg_builds_signed_package_with_default_name() {
     let dir = tempfile::tempdir().unwrap();
     let app = testutil::make_test_app(dir.path(), "Demo", "com.example.demo", "1.0");
-    let identity = testutil::TestIdentity::generate(CertKind::DeveloperIdInstaller);
+    let identity = testutil::TestIdentity::generate(mdmsign_core::CertKind::DeveloperIdInstaller);
     let p12 = identity.write_p12(dir.path());
 
     mdmsign()
@@ -103,7 +103,7 @@ fn pkg_builds_signed_package_with_default_name() {
 fn pkg_uses_identifier_prefix_from_config() {
     let dir = tempfile::tempdir().unwrap();
     let app = testutil::make_test_app(dir.path(), "Demo", "com.example.demo", "1.0");
-    let identity = testutil::TestIdentity::generate(CertKind::DeveloperIdInstaller);
+    let identity = testutil::TestIdentity::generate(mdmsign_core::CertKind::DeveloperIdInstaller);
     let p12 = identity.write_p12(dir.path());
     let config = dir.path().join("config.toml");
     std::fs::write(&config, "[package]\nidentifier_prefix = \"org.acme.pkg\"\n").unwrap();
