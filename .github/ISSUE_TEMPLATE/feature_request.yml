@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest a new feature, file type, check or MDM-specific improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. mdmsign focuses on getting files signed and ready for an MDM, so it helps to describe the admin workflow behind the request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the workflow and where mdmsign falls short today.
+      placeholder: When I upload signed profiles to …, I have to …
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like mdmsign to do?
+      description: Commands, flags or output you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Other tools or workarounds, e.g. productsign, rcodesign, scripts.
+  - type: input
+    id: mdm
+    attributes:
+      label: MDM
+      description: Which MDM(s) is this for, if any?
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Links to Apple or MDM vendor documentation are very helpful.
