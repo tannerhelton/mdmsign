@@ -132,7 +132,7 @@ type and is within its validity dates. After signing, it verifies the result.
 | `--p12 <FILE>` | A `.p12` with the certificate and private key. The password comes from `MDMSIGN_P12_PASSWORD` or a prompt. |
 | `--backend <auto\|native\|apple>` | Signing implementation. `auto` (the default) uses Apple's tools for Keychain identities and native signing for `.p12` files. See [How signing works](#how-signing-works). |
 | `--no-timestamp` | Don't add a secure timestamp to a `.pkg`. Useful offline, but **notarization requires a timestamp**. |
-| `--timestamp-url <URL>` | Use a different RFC 3161 timestamp server. The default is Apple's (`http://timestamp.apple.com/ts01`). |
+| `--timestamp-url <URL>` | Use a different RFC 3161 timestamp server. The default is Apple's (`http://timestamp.apple.com/ts01`). `mdmsign verify` only trusts timestamps from Apple's server and warns about others. |
 
 Only packages are timestamped. Profiles are never timestamped because macOS
 ignores timestamps on them.
