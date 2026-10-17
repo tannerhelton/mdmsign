@@ -3,6 +3,7 @@ name = "mdmsign"
 description = "Sign, notarize and verify macOS packages and configuration profiles so they're ready to upload to an MDM"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true

@@ -5,6 +5,9 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+# Oldest Rust that builds mdmsign; CI checks it. Set by the aws-smithy crates
+# apple-codesign pulls in, so it usually moves when apple-codesign is bumped.
+rust-version = "1.94.1"
 license = "MIT OR Apache-2.0"
 authors = ["Tanner Helton <tanner@tannerhelton.com>"]
 repository = "https://github.com/tannerhelton/mdmsign"

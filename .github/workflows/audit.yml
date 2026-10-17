@@ -1,0 +1,29 @@
+name: Security audit
+
+# New RustSec advisories can affect Cargo.lock without any commit here, so
+# check on a schedule too. CI runs the same check on PRs but doesn't block on it.
+on:
+  schedule:
+    - cron: "0 14 * * 1" # Mondays, alongside Dependabot
+  push:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - deny.toml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  advisories:
+    name: cargo deny (advisories)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check advisories
