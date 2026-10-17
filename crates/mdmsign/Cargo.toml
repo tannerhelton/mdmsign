@@ -1,0 +1,33 @@
+[package]
+name = "mdmsign"
+description = "Sign, notarize and verify macOS packages and configuration profiles so they're ready to upload to an MDM"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "../../README.md"
+
+[[bin]]
+name = "mdmsign"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mdmsign-core.workspace = true
+rpassword.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+mdmsign-core = { workspace = true, features = ["test-util"] }
+predicates.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
