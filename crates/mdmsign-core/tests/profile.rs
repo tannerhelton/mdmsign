@@ -100,6 +100,30 @@ fn refuses_already_signed_without_resign() {
     assert!(err.hint().unwrap().contains("--resign"));
 }
 
+/// A private profile stays private when signed, to a new file or in place.
+#[cfg(unix)]
+#[test]
+fn signing_keeps_file_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mode = |path: &Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+    let dir = tempfile::tempdir().unwrap();
+    let identity = identity();
+    let input = testutil::write_sample_profile(dir.path());
+    std::fs::set_permissions(&input, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+    let outcome = sign::sign_file(&input, &Output::Default, &identity, &options()).unwrap();
+    assert_eq!(mode(&outcome.output), 0o600);
+
+    std::fs::set_permissions(&outcome.output, std::fs::Permissions::from_mode(0o640)).unwrap();
+    let resign = SignOptions {
+        resign: true,
+        ..options()
+    };
+    sign::sign_file(&outcome.output, &Output::InPlace, &identity, &resign).unwrap();
+    assert_eq!(mode(&outcome.output), 0o640);
+}
+
 #[test]
 fn resign_replaces_the_signature() {
     let dir = tempfile::tempdir().unwrap();
