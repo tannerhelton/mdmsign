@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Test fixtures are binary and must not be normalized.
+*.pkg binary
+*.p12 binary

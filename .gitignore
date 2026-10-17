@@ -1,0 +1,18 @@
+/target
+**/*.rs.bk
+
+# Never commit signing material.
+*.p12
+*.pfx
+*.p8
+*.cer
+*.key
+*.pem
+!crates/mdmsign-core/tests/fixtures/*.pem
+
+# Local config and scratch output.
+/.context
+mdmsign.toml
+*-signed.pkg
+*-signed.mobileconfig
+.DS_Store
