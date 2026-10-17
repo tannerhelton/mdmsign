@@ -132,3 +132,55 @@ pub fn copy_fixture(name: &str, dir: &Path) -> PathBuf {
     std::fs::copy(fixture(name), &dest).expect("copying fixture");
     dest
 }
+
+/// Creates a minimal app bundle in `dir` (`<name>.app`, a shell-script
+/// executable) and, on macOS, ad-hoc code signs it. Ad-hoc signing needs no
+/// certificate or Keychain access.
+pub fn make_test_app(dir: &Path, name: &str, bundle_id: &str, version: &str) -> PathBuf {
+    let app = dir.join(format!("{name}.app"));
+    let macos = app.join("Contents/MacOS");
+    std::fs::create_dir_all(&macos).expect("creating test app");
+    std::fs::write(
+        app.join("Contents/Info.plist"),
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>{name}</string>
+	<key>CFBundleIdentifier</key>
+	<string>{bundle_id}</string>
+	<key>CFBundleName</key>
+	<string>{name}</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>{version}</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+</dict>
+</plist>
+"#
+        ),
+    )
+    .expect("writing test Info.plist");
+    let exe = macos.join(name);
+    std::fs::write(&exe, "#!/bin/sh\nexit 0\n").expect("writing test executable");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755))
+            .expect("making test executable runnable");
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("/usr/bin/codesign")
+            .args(["--force", "--sign", "-"])
+            .arg(&app)
+            .status()
+            .expect("running codesign");
+        assert!(status.success(), "ad-hoc signing the test app failed");
+    }
+    app
+}
