@@ -1,0 +1,111 @@
+name: Bug report
+description: Something didn't work, or an error message didn't help.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem.
+
+        **Don't paste secrets.** Remove passwords, `.p12`/`.p8` contents, API key IDs you consider private, and anything else sensitive from commands and output. For security issues, [report privately](https://github.com/tannerhelton/mdmsign/security/advisories/new) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you try to do, and what went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact mdmsign command you ran, with secrets removed.
+      placeholder: 'mdmsign sign MyApp.pkg --identity "Developer ID Installer: Example Corp (ABCDE12345)"'
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The full output, including any `error:` and `fix:` lines. For verify problems, `mdmsign verify --json` output is especially useful.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: mdmsign version
+      description: Output of `mdmsign --version`.
+      placeholder: mdmsign 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install mdmsign?
+      options:
+        - Homebrew
+        - cargo install
+        - Shell installer / GitHub Releases
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: e.g. macOS 26.1 (Apple silicon), Ubuntu 24.04 (x86_64), GitHub Actions macos-latest.
+    validations:
+      required: true
+  - type: dropdown
+    id: file-type
+    attributes:
+      label: File type
+      options:
+        - .pkg
+        - .mobileconfig
+        - Not file-specific
+    validations:
+      required: true
+  - type: dropdown
+    id: identity
+    attributes:
+      label: Signing identity source
+      options:
+        - Keychain identity (--identity / MDMSIGN_IDENTITY)
+        - .p12 file (--p12 / MDMSIGN_P12_PATH)
+        - Base64 .p12 (MDMSIGN_P12_BASE64)
+        - Not applicable
+    validations:
+      required: true
+  - type: input
+    id: certificate
+    attributes:
+      label: Certificate type
+      description: e.g. Developer ID Installer, Developer ID Application. `mdmsign certs` shows it.
+  - type: input
+    id: mdm
+    attributes:
+      label: MDM
+      description: If the problem shows up after uploading, which MDM and version (e.g. Jamf Pro 11.x, Kandji, Intune, Rippling)?
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Workarounds you tried, how the file was built (pkgbuild, productbuild, a packaging tool), etc.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed passwords, keys and other secrets from everything above.
+          required: true
+        - label: I searched existing issues for this problem.
+          required: true
