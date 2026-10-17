@@ -29,7 +29,10 @@ use x509_certificate::{
 use crate::{
     ArtifactKind, CertKind, Error, Result,
     identity::Suitability,
-    sign::pkg::{self as sign_pkg, PkgError},
+    sign::{
+        pkg::{self as sign_pkg, PkgError},
+        profile as sign_profile,
+    },
     tool,
     verify::{Check, CheckId, Report, SignerInfo, Status, VerifyOptions},
 };
@@ -238,29 +241,24 @@ fn format_check(xar: &Xar) -> Check {
     )
 }
 
-/// The certificate that made the signature. For CMS that's the certificate
-/// matching the signer's issuer and serial number; otherwise the first
-/// certificate listed, which is where XAR puts the signing certificate.
+/// The certificate that made the signature.
+///
+/// With a CMS signature that's the certificate the CMS signature is verified
+/// against (see [`sign_profile::signer_certificate`]), or `None` if it can't
+/// be pinned down; never some other certificate from the file, or the checks
+/// below would vouch for a certificate that didn't sign anything. Without
+/// one, it's the first certificate of the RSA signature, which is the one
+/// the RSA signature is verified against.
 fn leaf_certificate(
     toc: &apple_xar::table_of_contents::TableOfContents,
     cms: Option<&SignedData>,
 ) -> Option<CapturedX509Certificate> {
-    if let Some(signed_data) = cms
-        && let Some(signer) = signed_data.signers().next()
-        && let Some((issuer, serial)) = signer.certificate_issuer_and_serial()
-        && let Some(cert) = signed_data
-            .certificates()
-            .find(|c| c.issuer_name() == issuer && c.serial_number_asn1() == serial)
-    {
-        // Certificates parsed from BER-mode CMS can't be re-encoded as DER
-        // (bcder panics), which fingerprinting needs. Re-parse the original
-        // bytes as DER.
-        return CapturedX509Certificate::from_der(cert.constructed_data().to_vec()).ok();
+    if let Some(signed_data) = cms {
+        let signer = signed_data.signers().next()?;
+        return sign_profile::signer_certificate(signed_data, signer);
     }
-    [SignatureStyle::Cms, SignatureStyle::Rsa]
-        .into_iter()
-        .filter_map(|style| toc.find_signature(style))
-        .find_map(|sig| sig.x509_certificates().ok()?.into_iter().next())
+    toc.find_signature(SignatureStyle::Rsa)
+        .and_then(|sig| sig.x509_certificates().ok()?.into_iter().next())
 }
 
 fn signature_check(
@@ -281,6 +279,16 @@ fn signature_check(
     }
 
     match cms {
+        Ok(Some(signed_data))
+            if signed_data
+                .signers()
+                .any(|signer| sign_profile::signer_certificate(signed_data, signer).is_none()) =>
+        {
+            problems.push(
+                "the CMS signature's certificate can't be identified: it's missing, or several certificates match it"
+                    .into(),
+            );
+        }
         Ok(Some(_)) => match xar.verify_cms_signature() {
             Ok(true) => verified.push("CMS signature".into()),
             Ok(false) => problems.push("the CMS signature has no signers".into()),
@@ -772,6 +780,45 @@ fn pkgutil_status(path: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cms_leaf_must_be_unambiguous() {
+        use cryptographic_message_syntax::{SignedDataBuilder, SignerBuilder};
+
+        use crate::{Secret, SigningIdentity, testutil::TestIdentity};
+
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/unsigned.pkg");
+        let toc = sign_pkg::open(&fixture)
+            .unwrap()
+            .table_of_contents()
+            .clone();
+        let test = TestIdentity::generate(CertKind::DeveloperIdInstaller);
+        let identity =
+            SigningIdentity::from_p12(&test.p12, &Secret::new(&test.password), "test.p12").unwrap();
+        let sign = |extra: Option<CapturedX509Certificate>| {
+            let mut builder = SignedDataBuilder::default()
+                .content_external(b"checksum".to_vec())
+                .signer(SignerBuilder::new(
+                    identity.private_key().unwrap(),
+                    identity.certificate().clone(),
+                ));
+            if let Some(cert) = extra {
+                builder = builder.certificate(cert);
+            }
+            SignedData::parse_ber(&builder.build_der().unwrap()).unwrap()
+        };
+
+        let leaf = leaf_certificate(&toc, Some(&sign(None))).unwrap();
+        assert_eq!(
+            leaf.public_key_data(),
+            identity.certificate().public_key_data()
+        );
+
+        // Same issuer and serial number, different key: the signature could
+        // be verified against either, so neither is trusted as the signer.
+        let decoy = TestIdentity::generate(CertKind::DeveloperIdInstaller).certificate;
+        assert!(leaf_certificate(&toc, Some(&sign(Some(decoy)))).is_none());
+    }
 
     #[test]
     fn quotes_paths_for_the_shell() {
