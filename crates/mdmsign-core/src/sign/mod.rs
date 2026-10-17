@@ -220,6 +220,15 @@ pub fn sign_file(
         });
     }
 
+    // The staged file was created with default permissions. Keep those of
+    // the file being replaced, or of the input for a new file, so a profile
+    // kept private (e.g. one holding Wi-Fi or VPN credentials) doesn't
+    // become readable by other users when it's signed.
+    let permissions = std::fs::metadata(&destination)
+        .or_else(|_| std::fs::metadata(input))
+        .map_err(io_error("read", input))?
+        .permissions();
+    std::fs::set_permissions(&staged, permissions).map_err(io_error("write", &staged))?;
     std::fs::rename(&staged, &destination).map_err(io_error("write", &destination))?;
 
     Ok(SignOutcome {
