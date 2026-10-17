@@ -76,7 +76,7 @@ developers. mdmsign wraps the whole job for MDM deployment:
 brew install tannerhelton/tap/mdmsign
 ```
 
-**Cargo** (needs a [Rust toolchain](https://rustup.rs)):
+**Cargo** (needs a [Rust toolchain](https://rustup.rs), 1.94.1 or newer):
 
 ```sh
 cargo install mdmsign --locked

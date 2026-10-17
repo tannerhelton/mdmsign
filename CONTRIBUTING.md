@@ -10,7 +10,8 @@ For security problems, don't open an issue. Follow [SECURITY.md](SECURITY.md).
 ## Development setup
 
 - **Rust:** the latest stable toolchain from [rustup](https://rustup.rs). The
-  workspace uses edition 2024, so you need Rust 1.85 or newer.
+  oldest supported version is `rust-version` in the root `Cargo.toml`
+  (currently 1.94.1), and CI checks that it still builds.
 - **macOS** is the most complete development platform. The Keychain backend
   and system checks call `productsign`, `security`, `pkgutil` and `spctl`,
   which come with macOS. Install the Xcode Command Line Tools
@@ -66,6 +67,21 @@ cargo test --workspace --all-features --locked
 
 `--all-features` turns on `mdmsign-core`'s `test-util` feature, and `--locked`
 fails if `Cargo.lock` would change.
+
+CI also runs these. You rarely need them locally unless you touched what
+they check:
+
+| Job | What it checks | Run locally |
+| --- | --- | --- |
+| `msrv` | Builds with the `rust-version` toolchain and default features, the way `cargo install` does | `cargo +1.94.1 check --workspace --locked` |
+| `rustdoc` | `mdmsign-core` docs build without warnings | `RUSTDOCFLAGS="-D warnings" cargo doc -p mdmsign-core --no-deps --all-features` |
+| `cargo package` | Both crates can be published to crates.io | `cargo package --workspace --locked` |
+| `cargo deny` | Known vulnerabilities (RustSec), licenses, duplicate sources ([`deny.toml`](deny.toml)) | `cargo deny check` |
+| `zizmor` | Security problems in the workflows and `dependabot.yml` | `zizmor .github/workflows/ci.yml .github/workflows/audit.yml .github/dependabot.yml` |
+
+The advisories check doesn't block PRs, because new advisories appear
+without any change here. [`audit.yml`](.github/workflows/audit.yml) runs it
+weekly and whenever `Cargo.lock` changes on `main`.
 
 ## Testing strategy
 
@@ -163,7 +179,11 @@ Also:
   `apple-xar`, `cryptographic-message-syntax` and `x509-certificate` (and
   `bcder`) share types, so they must stay on the exact versions
   `apple-codesign` itself depends on. After bumping, check for duplicates with
-  `cargo tree -d`.
+  `cargo tree -d`, run `cargo deny check` and remove any `deny.toml`
+  advisory ignores it reports as no longer needed. A bump can also raise the
+  minimum Rust version; if the `msrv` job fails, raise `rust-version`.
+- Every ignored advisory in `deny.toml` says why mdmsign isn't affected. Don't
+  add one without that reasoning.
 - `Cargo.lock` is committed and CI builds with `--locked`.
 - Prefer the standard library and existing dependencies over new ones. Explain
   any new dependency in the PR.
