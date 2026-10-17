@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     failed run never leaves a partial file.
   - Adds a secure timestamp to packages by default (`--no-timestamp`,
     `--timestamp-url`). Profiles are never timestamped.
+- `mdmsign pkg` (alias `package`) wraps an installed `.app` in a signed
+  package. It refuses unsigned or broken apps, pins the install location
+  (not relocatable), upgrades in place with version checks, keeps every file
+  in the bundle, and supports `--identifier`, `--version`,
+  `--install-location` and an `identifier_prefix` config setting. macOS only.
 - `mdmsign notarize` submits signed packages to Apple with an App Store
   Connect API key, waits for the verdict and staples the ticket (`--no-wait`,
   `--no-staple`, `--timeout`, `--json`).
