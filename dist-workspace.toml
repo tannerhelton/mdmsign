@@ -14,10 +14,14 @@ tap = "tannerhelton/homebrew-tap"
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
 # Publish jobs to run in CI
-publish-jobs = ["homebrew"]
+publish-jobs = ["homebrew", "./publish-crates"]
+# Publish GitHub build provenance attestations for every artifact
+github-attestations = true
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 # Where to host releases
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
+# Trusted publishing to crates.io needs an OIDC token
+github-custom-job-permissions = { "publish-crates" = { contents = "read", id-token = "write" } }
