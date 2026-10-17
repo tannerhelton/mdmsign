@@ -21,7 +21,7 @@ mdmsign-core = { path = "crates/mdmsign-core", version = "=0.1.0" }
 anyhow = "=1.0.104"
 apple-codesign = { version = "=0.29.0", default-features = false, features = ["notarize"] }
 apple-xar = "=0.20.0"
-base64 = "=0.22.1"
+base64 = "=0.23.1"
 bcder = "=0.7.7"
 bytes = "=1.12.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "serde", "std"] }
