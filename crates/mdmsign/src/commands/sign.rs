@@ -62,8 +62,8 @@ pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
 
     eprintln!(
         "Signing {} with \"{}\"",
-        args.file.display(),
-        identity.common_name()
+        crate::output::clean_line(&args.file.display().to_string()),
+        crate::output::clean_line(&identity.common_name())
     );
     announce_keychain(&identity);
     if options.timestamp && kind == ArtifactKind::FlatPackage {
@@ -73,7 +73,7 @@ pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
     let outcome = sign::sign_file(&args.file, &output, &identity, &options)?;
 
     for warning in &outcome.warnings {
-        eprintln!("warning: {warning}");
+        eprintln!("warning: {}", crate::output::clean(warning));
     }
     println!(
         "Signed {} using {}",

@@ -91,7 +91,10 @@ pub fn render(entries: &[CertEntry], hidden: usize, searched_keychain: bool) -> 
     for &kind in ArtifactKind::ALL {
         let label = format!(".{}", kind.extension());
         match certs::best_for(entries, kind) {
-            Some(best) => out.push_str(&format!("  {label:<14} ✔  {}\n", best.name)),
+            Some(best) => out.push_str(&format!(
+                "  {label:<14} ✔  {}\n",
+                output::clean_line(&best.name)
+            )),
             None => {
                 let why = match kind {
                     ArtifactKind::FlatPackage => "no usable Developer ID Installer identity",
@@ -110,9 +113,10 @@ pub fn render(entries: &[CertEntry], hidden: usize, searched_keychain: bool) -> 
 }
 
 fn render_entry(entry: &CertEntry) -> String {
-    let mut out = format!("  {}\n", entry.name);
+    // Names come from certificates, which anyone can create.
+    let mut out = format!("  {}\n", output::clean_line(&entry.name));
     let mut field = |label: &str, value: &str| {
-        out.push_str(&format!("    {label:<10} {value}\n"));
+        out.push_str(&format!("    {label:<10} {}\n", output::clean_line(value)));
     };
     field("Type:", entry.kind.display_name());
     field("SHA-1:", &entry.sha1);
