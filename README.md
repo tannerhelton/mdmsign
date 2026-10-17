@@ -99,6 +99,14 @@ mdmsign completions zsh > "${fpath[1]}/_mdmsign"     # also bash, fish, elvish, 
 mdmsign man --out-dir ~/.local/share/man/man1        # then `man mdmsign-sign`
 ```
 
+Every release archive has a GitHub [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations),
+so you can check that it was built from this repository by its release
+workflow:
+
+```sh
+gh attestation verify mdmsign-aarch64-apple-darwin.tar.xz --repo tannerhelton/mdmsign
+```
+
 ## Quick start
 
 Every command has `--help`. Running `mdmsign --help` also lists the

@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mdmsign completions <shell>` prints a completion script for bash, zsh,
   fish, elvish or PowerShell. `mdmsign man` prints the man page, and
   `mdmsign man --out-dir <dir>` writes one page per command.
+- `mdmsign --version` includes the git commit it was built from, e.g.
+  `mdmsign 0.1.0 (1a2b3c4d5e)`, so bug reports pin down the exact build.
 - Credentials from flags, `MDMSIGN_*` environment variables (including
   `MDMSIGN_P12_BASE64` and `MDMSIGN_ASC_KEY` for CI secrets) or an optional
   config file at `~/.config/mdmsign/config.toml`. The config file refuses to
@@ -56,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or credential errors.
 - Prebuilt binaries for macOS (Apple silicon, Intel) and Linux (x86_64,
   arm64), a shell installer, and a Homebrew tap (`tannerhelton/tap/mdmsign`).
+  Release archives have GitHub build provenance attestations
+  (`gh attestation verify`).
 - Building from source with `cargo install` needs Rust 1.94.1 or newer.
 
 [Unreleased]: https://github.com/tannerhelton/mdmsign/commits/main

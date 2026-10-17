@@ -18,10 +18,13 @@ Credentials are read from flags, then environment variables, then the config fil
 
 Exit status: 0 success, 1 failure (or not MDM-ready), 2 usage or credential error.";
 
+/// The version plus the git commit it was built from, when known (build.rs).
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), env!("MDMSIGN_COMMIT"));
+
 /// Sign, notarize and verify macOS packages and configuration profiles so
 /// they're ready to upload to an MDM.
 #[derive(Debug, Parser)]
-#[command(name = "mdmsign", version, after_help = AFTER_HELP)]
+#[command(name = "mdmsign", version = VERSION, after_help = AFTER_HELP)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,

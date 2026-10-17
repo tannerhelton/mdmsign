@@ -26,6 +26,9 @@ rpassword.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+[build-dependencies]
+serde_json.workspace = true
+
 [dev-dependencies]
 assert_cmd.workspace = true
 mdmsign-core = { workspace = true, features = ["test-util"] }

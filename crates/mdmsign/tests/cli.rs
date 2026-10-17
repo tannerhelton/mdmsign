@@ -176,3 +176,20 @@ fn man_out_dir_writes_a_page_per_command() {
         assert!(text.contains(".TH "), "{page} isn't a man page");
     }
 }
+
+#[test]
+fn version_includes_the_commit_when_known() {
+    let commit = env!("MDMSIGN_COMMIT");
+    // Empty, or " (<10 hex digits>)" (see build.rs).
+    if let Some(sha) = commit.strip_prefix(" (").and_then(|s| s.strip_suffix(')')) {
+        assert_eq!(sha.len(), 10, "{commit:?}");
+        assert!(sha.bytes().all(|b| b.is_ascii_hexdigit()), "{commit:?}");
+    } else {
+        assert_eq!(commit, "");
+    }
+    mdmsign()
+        .arg("--version")
+        .assert()
+        .success()
+        .stdout(format!("mdmsign {}{commit}\n", env!("CARGO_PKG_VERSION")));
+}
