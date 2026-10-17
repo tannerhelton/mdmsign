@@ -32,6 +32,8 @@ pub struct VerifyOptions {
     pub system_checks: bool,
 }
 
+// Not derivable on macOS, where system checks default to on.
+#[allow(clippy::derivable_impls)]
 impl Default for VerifyOptions {
     fn default() -> Self {
         Self {
