@@ -14,6 +14,9 @@ use crate::{
 };
 
 pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
+    // Check the input before credentials, so a typo in the path doesn't cost
+    // a Keychain lookup or a password prompt.
+    let kind = ArtifactKind::detect(&args.file)?;
     let identity = creds::load_identity(&args.identity, config)?;
 
     let defaults = SignOptions::default();
@@ -48,8 +51,7 @@ pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
             "macOS may ask you to allow access to the signing key; choose \"Always Allow\" to skip this next time."
         );
     }
-    if options.timestamp && ArtifactKind::detect(&args.file).ok() == Some(ArtifactKind::FlatPackage)
-    {
+    if options.timestamp && kind == ArtifactKind::FlatPackage {
         eprintln!("Adding a secure timestamp (needs an internet connection)…");
     }
 

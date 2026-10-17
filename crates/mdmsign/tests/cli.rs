@@ -75,6 +75,16 @@ fn sign_with_wrong_p12_password_fails_clearly() {
 }
 
 #[test]
+fn sign_checks_the_file_before_credentials() {
+    mdmsign()
+        .args(["sign", "/definitely/not/here.pkg"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("file not found"))
+        .stderr(predicate::str::contains("signing identity").not());
+}
+
+#[test]
 fn verify_missing_file() {
     mdmsign()
         .args(["verify", "/definitely/not/here.pkg"])
