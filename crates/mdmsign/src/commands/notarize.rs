@@ -29,7 +29,9 @@ pub fn run(args: NotarizeArgs, config: &Config) -> anyhow::Result<ExitCode> {
     };
     let file = args.file.display().to_string();
     let result = notarize::notarize(&args.file, &creds, &options, &mut |line| {
-        eprintln!("{line}")
+        // Progress lines quote Apple's notary log, which includes file names
+        // from inside the package.
+        eprintln!("{}", output::clean(line))
     });
     let outcome = match result {
         Ok(outcome) => outcome,

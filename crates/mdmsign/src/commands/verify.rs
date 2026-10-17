@@ -4,7 +4,10 @@ use std::process::ExitCode;
 
 use mdmsign_core::verify::{self, Report, Status, VerifyOptions};
 
-use crate::{cli::VerifyArgs, output};
+use crate::{
+    cli::VerifyArgs,
+    output::{self, clean_line},
+};
 
 pub fn run(args: VerifyArgs) -> anyhow::Result<ExitCode> {
     let defaults = VerifyOptions::default();
@@ -28,11 +31,19 @@ pub fn run(args: VerifyArgs) -> anyhow::Result<ExitCode> {
 
 /// Renders a report for humans.
 pub fn render(report: &Report) -> String {
-    let mut out = format!("{} ({})\n", report.path.display(), report.kind);
+    // Summaries, details and the signer's name can quote text from the file
+    // being verified, which an attacker controls: escape it so it can't fake
+    // a "PASS" line or hide a "FAIL" one.
+    let mut out = format!(
+        "{} ({})\n",
+        clean_line(&report.path.display().to_string()),
+        report.kind
+    );
     if let Some(signer) = &report.signer {
         out.push_str(&format!(
             "  Signed by: {} [{}]\n",
-            signer.common_name, signer.cert_kind
+            clean_line(&signer.common_name),
+            signer.cert_kind
         ));
         out.push_str(&format!(
             "  Expires:   {}\n",
@@ -47,14 +58,14 @@ pub fn render(report: &Report) -> String {
             Status::Fail => "FAIL",
             Status::Skip => "SKIP",
         };
-        out.push_str(&format!("  {label}  {}\n", check.summary));
+        out.push_str(&format!("  {label}  {}\n", clean_line(&check.summary)));
         if let Some(detail) = &check.detail {
             for line in detail.lines() {
-                out.push_str(&format!("        {line}\n"));
+                out.push_str(&format!("        {}\n", clean_line(line)));
             }
         }
         if let Some(fix) = &check.fix {
-            out.push_str(&format!("        fix: {fix}\n"));
+            out.push_str(&format!("        fix: {}\n", clean_line(fix)));
         }
     }
     let warnings = report.count(Status::Warn);
@@ -103,5 +114,19 @@ mod tests {
             text.ends_with("Result: PASS: MDM-ready (1 warning)\n"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn untrusted_text_cannot_fake_lines() {
+        let mut report = Report::new(Path::new("app.pkg"), ArtifactKind::FlatPackage);
+        report.push(Check::fail(
+            CheckId::CertificateChain,
+            "Issued by Evil\n  PASS  Certificate is issued by Apple\x1b[8m",
+            "Sign it properly.",
+        ));
+        let text = render(&report.finalize(&VerifyOptions::default()));
+        assert!(!text.contains('\x1b'), "{text}");
+        assert!(!text.contains("\n  PASS"), "{text}");
+        assert!(text.contains("Result: FAIL"), "{text}");
     }
 }
