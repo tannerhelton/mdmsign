@@ -462,23 +462,32 @@ pub(crate) fn subject_key_identifier(cert: &CapturedX509Certificate) -> Option<V
 
 /// Finds the certificate a signer used among those embedded in `signed`.
 ///
+/// Matching is the same as `cryptographic-message-syntax` uses to pick the
+/// key it verifies the signature with, so the certificate returned here is
+/// the one whose key the signature was checked against. Returns `None` if no
+/// certificate matches, or if more than one does: with several candidates a
+/// crafted file could have the signature checked against one certificate
+/// while the type and chain checks look at another.
+///
 /// The result is re-parsed with [`reparse_der`], so it can be fingerprinted.
 pub fn signer_certificate(
     signed: &SignedData,
     signer: &cryptographic_message_syntax::SignerInfo,
 ) -> Option<CapturedX509Certificate> {
     let (issuer, serial) = signer.certificate_issuer_and_serial()?;
-    signed
-        .certificates()
-        .find(|cert| {
-            x509_certificate::certificate::certificate_is_subset_of(
-                serial,
-                issuer,
-                cert.serial_number_asn1(),
-                cert.issuer_name(),
-            )
-        })
-        .map(reparse_der)
+    let mut matches = signed.certificates().filter(|cert| {
+        x509_certificate::certificate::certificate_is_subset_of(
+            serial,
+            issuer,
+            cert.serial_number_asn1(),
+            cert.issuer_name(),
+        )
+    });
+    let found = matches.next()?;
+    if matches.next().is_some() {
+        return None;
+    }
+    Some(reparse_der(found))
 }
 
 /// Re-parses a certificate taken from a CMS structure in DER mode.
@@ -595,6 +604,53 @@ mod tests {
         );
         // Certificates from a parsed signature can be fingerprinted.
         assert_eq!(sha1_fingerprint(&found), identity.sha1_fingerprint());
+    }
+
+    /// A signature carrying a second certificate with the same issuer and
+    /// serial number as the signer's. Test certificates are self-signed with
+    /// serial 1, so any two of the same type collide.
+    fn signed_with_decoy() -> Vec<u8> {
+        let signer = identity();
+        let decoy = testutil::TestIdentity::generate(CertKind::DeveloperIdApplication);
+        assert_ne!(
+            decoy.certificate.public_key_data(),
+            signer.certificate().public_key_data()
+        );
+        let id_data = Oid(Bytes::copy_from_slice(OID_ID_DATA.as_ref()));
+        SignedDataBuilder::default()
+            .content_inline(testutil::SAMPLE_PROFILE.as_bytes().to_vec())
+            .content_type(id_data)
+            .signer(SignerBuilder::new(
+                signer.private_key().unwrap(),
+                signer.certificate().clone(),
+            ))
+            .certificate(decoy.certificate)
+            .build_der()
+            .unwrap()
+    }
+
+    #[test]
+    fn ambiguous_signer_certificate_is_not_picked() {
+        let der = signed_with_decoy();
+        let signed = parse_signed_data(&der).unwrap();
+        assert_eq!(signed.certificates().count(), 2);
+        let signer = signed.signers().next().unwrap();
+        assert!(signer_certificate(&signed, signer).is_none());
+    }
+
+    #[test]
+    fn ambiguous_signer_certificate_fails_verification() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("decoy.mobileconfig");
+        std::fs::write(&path, signed_with_decoy()).unwrap();
+        let report =
+            crate::verify::verify_file(&path, &crate::verify::VerifyOptions::post_sign()).unwrap();
+        let check = report
+            .check(crate::verify::CheckId::SignatureValid)
+            .unwrap();
+        assert_eq!(check.status, crate::verify::Status::Fail, "{check:?}");
+        assert!(report.signer.is_none());
+        assert!(!report.mdm_ready);
     }
 
     #[test]

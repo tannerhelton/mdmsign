@@ -129,7 +129,7 @@ pub fn verify(path: &Path, options: &VerifyOptions) -> Result<Report> {
     report.push(signature_check(&signed, &file));
 
     let Some(leaf) = leaf else {
-        skip_certificate_checks(&mut report, "the signing certificate isn't in the file");
+        skip_certificate_checks(&mut report, "the signing certificate can't be identified");
         return Ok(report);
     };
     report.signer = Some(SignerInfo::from_certificate(&leaf));
@@ -206,7 +206,9 @@ fn signature_check(signed: &SignedData, file: &str) -> Check {
         if signer_certificate(signed, signer).is_none() {
             return Check::fail(
                 CheckId::SignatureValid,
-                format!("{label}The signing certificate isn't included in the signature"),
+                format!(
+                    "{label}The signing certificate can't be identified: it's missing from the signature, or several certificates match it"
+                ),
                 format!(
                     "Macs can't check a signature without its certificate. Sign the profile again with `mdmsign sign --resign {file}`."
                 ),
