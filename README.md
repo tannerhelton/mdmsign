@@ -92,6 +92,13 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tannerhelton/mdmsign/re
 
 The installer puts `mdmsign` in `~/.cargo/bin`.
 
+**Shell completions and man pages.** mdmsign prints both. For example:
+
+```sh
+mdmsign completions zsh > "${fpath[1]}/_mdmsign"     # also bash, fish, elvish, powershell
+mdmsign man --out-dir ~/.local/share/man/man1        # then `man mdmsign-sign`
+```
+
 Every release archive has a GitHub [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations),
 so you can check that it was built from this repository by its release
 workflow:

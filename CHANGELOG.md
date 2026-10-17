@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--no-system-checks`.
 - `mdmsign certs` lists Keychain and `.p12` identities and what each can sign
   (`--p12`, `--no-keychain`, `--json`).
+- `mdmsign completions <shell>` prints a completion script for bash, zsh,
+  fish, elvish or PowerShell. `mdmsign man` prints the man page, and
+  `mdmsign man --out-dir <dir>` writes one page per command.
 - `mdmsign --version` includes the git commit it was built from, e.g.
   `mdmsign 0.1.0 (1a2b3c4d5e)`, so bug reports pin down the exact build.
 - Credentials from flags, `MDMSIGN_*` environment variables (including
