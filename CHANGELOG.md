@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or credential errors.
 - Prebuilt binaries for macOS (Apple silicon, Intel) and Linux (x86_64,
   arm64), a shell installer, and a Homebrew tap (`tannerhelton/tap/mdmsign`).
+  Release archives have GitHub build provenance attestations
+  (`gh attestation verify`).
 - Building from source with `cargo install` needs Rust 1.94.1 or newer.
 
 [Unreleased]: https://github.com/tannerhelton/mdmsign/commits/main
