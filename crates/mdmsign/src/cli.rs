@@ -136,9 +136,10 @@ pub struct NotarizeArgs {
     #[arg(long)]
     pub no_staple: bool,
 
-    /// Minutes to wait for Apple's verdict.
-    #[arg(long, value_name = "MINUTES", default_value_t = 30)]
-    pub timeout: u64,
+    /// Minutes to wait for Apple's verdict [default: 30, or `timeout_minutes`
+    /// under [notarize] in the config file].
+    #[arg(long, value_name = "MINUTES")]
+    pub timeout: Option<u64>,
 
     /// Print the result as JSON.
     #[arg(long)]
@@ -149,6 +150,10 @@ pub struct NotarizeArgs {
 pub struct StapleArgs {
     /// The notarized .pkg to staple.
     pub file: PathBuf,
+
+    /// Print the result as JSON.
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Args)]
@@ -174,14 +179,24 @@ pub struct VerifyArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(after_help = "\
+Exit status: 0 if at least one identity can sign a .pkg or .mobileconfig,
+1 if none can (the output explains how to get one), 2 for a credential error
+such as a wrong .p12 password.")]
 pub struct CertsArgs {
-    /// Also inspect this .p12 file.
+    /// Also inspect this .p12 file. The password comes from
+    /// MDMSIGN_P12_PASSWORD or a prompt.
     #[arg(long, value_name = "FILE")]
     pub p12: Option<PathBuf>,
 
     /// Skip the macOS Keychain.
     #[arg(long)]
     pub no_keychain: bool,
+
+    /// Also show non-Apple Keychain identities (e.g. MDM device or Wi-Fi
+    /// certificates).
+    #[arg(long)]
+    pub all: bool,
 
     /// Print the list as JSON.
     #[arg(long)]
