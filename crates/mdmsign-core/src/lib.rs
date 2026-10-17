@@ -1,7 +1,8 @@
 //! Core library for `mdmsign`, an MDM-focused signing tool for Mac admins.
 //!
 //! It signs flat installer packages (`.pkg`) and configuration profiles
-//! (`.mobileconfig`), notarizes and staples packages, and verifies whether a
+//! (`.mobileconfig`), wraps installed apps in signed packages
+//! ([`app_pkg`]), notarizes and staples packages, and verifies whether a
 //! file is ready to upload to an MDM.
 //!
 //! The heavy lifting is done by [`apple_codesign`] (package signing,
@@ -19,6 +20,7 @@
 //! 3. Add a module under [`verify`] and register it in [`verify::verify_file`].
 //! 4. Teach [`identity::CertKind::suitability`] which certificates fit.
 
+pub mod app_pkg;
 pub mod artifact;
 pub mod certs;
 pub mod config;

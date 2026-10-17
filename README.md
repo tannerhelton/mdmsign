@@ -5,9 +5,9 @@
 
 **Sign, notarize and verify macOS packages and configuration profiles so they're ready to upload to your MDM.**
 
-`mdmsign` is a command-line tool for Mac admins. Give it a `.pkg` or a
-`.mobileconfig` and a signing identity, either from your Keychain or a `.p12`
-file. It checks that the certificate is the right type for the file, signs it,
+`mdmsign` is a command-line tool for Mac admins. Give it a `.pkg`, a
+`.mobileconfig` or an installed `.app`, and a signing identity, either from
+your Keychain or a `.p12` file. It checks that the certificate is the right type for the file, signs it,
 optionally notarizes and staples it, and tells you whether the result is
 **MDM-ready** for Jamf Pro, Kandji, Intune, Rippling or any other MDM. It
 runs on macOS and Linux, so it also works in CI.
@@ -27,7 +27,7 @@ mdmsign verify MyApp-signed.pkg
 
 - [Why mdmsign](#why-mdmsign)
 - [Install](#install)
-- [Quick start](#quick-start): [sign](#sign), [notarize](#notarize), [staple](#staple), [verify](#verify), [certs](#certs)
+- [Quick start](#quick-start): [sign](#sign), [pkg](#pkg), [notarize](#notarize), [staple](#staple), [verify](#verify), [certs](#certs)
 - [Credentials](#credentials)
 - [Configuration](#configuration)
 - [Certificates: which one signs what](#certificates-which-one-signs-what)
@@ -136,6 +136,57 @@ type and is within its validity dates. After signing, it verifies the result.
 
 Only packages are timestamped. Profiles are never timestamped because macOS
 ignores timestamps on them.
+
+### pkg
+
+Wraps an app that's already installed (e.g. in `/Applications`) in a signed
+`.pkg` your MDM can deploy. The app keeps its developer's signature; only the
+package is signed, so you need a Developer ID Installer certificate. `pkg`
+needs macOS (it uses `pkgbuild`, `codesign` and `ditto`).
+
+```sh
+mdmsign pkg "/Applications/Example.app" --identity "Developer ID Installer: Example Corp"
+mdmsign notarize Example-2.0.3-signed.pkg    # recommended
+mdmsign verify Example-2.0.3-signed.pkg
+```
+
+```text
+$ mdmsign pkg /Applications/Rectangle.app -i "Developer ID Installer: Example Corp"
+Packaging Rectangle.app 2.0.3 (build 110; x86_64, arm64)
+  Installs to: /Applications/Rectangle.app
+  Package ID:  com.knollsoft.Rectangle.pkg
+  Version:     2.0.3
+…
+Built and signed Rectangle-2.0.3-signed.pkg using productsign
+```
+
+What it does:
+
+- Refuses apps that aren't signed or whose signature is broken (`codesign
+  --verify --deep --strict`), because Macs block them anyway. It checks the
+  copy it packages again, in case the app updated itself mid-copy.
+- Installs the app to a fixed location. `pkgbuild` normally marks apps as
+  relocatable, which makes Installer "upgrade" a copy it finds elsewhere on
+  the disk instead of installing to `/Applications`. mdmsign turns that off.
+- Upgrades the app in place and has Installer check bundle versions, so an
+  older package won't downgrade a newer app.
+- Keeps every file in the bundle (pkgbuild's default filters could break the
+  app's signature).
+- Packages only the app bundle. Settings, caches and other user data outside
+  the bundle aren't included. Apps that need a vendor installer (privileged
+  helpers, system extensions, drivers) should use the vendor's package.
+
+| Option | What it does |
+| --- | --- |
+| *(default output)* | Writes `<Name>-<version>-signed.pkg` in the current directory. |
+| `-o, --output <PATH>` | Writes the package to `PATH`. |
+| `-f, --force` | Overwrites the output file if it already exists. |
+| `--identifier <ID>` | Package (install receipt) identifier. The default is `<bundle-id>.pkg`, or `identifier_prefix` + bundle ID from the config file. **Keep it the same for every version of the app** so MDMs and Installer treat new versions as upgrades. If you've deployed the app before, reuse that package ID. |
+| `--version <VERSION>` | Installer version. The default is the app's `CFBundleShortVersionString`. `1.2.3-45` becomes `1.2.3.45`; other formats need `--version`. |
+| `--install-location <DIR>` | Folder the app installs into. The default is `/Applications`. |
+| `-i`, `--p12`, `--backend`, `--no-timestamp`, `--timestamp-url` | Same as for `sign`. |
+
+Quit the app on target Macs before deploying the package.
 
 ### notarize
 
@@ -422,6 +473,10 @@ key_path = "~/.appstoreconnect/AuthKey_ABC123DEFG.p8"
 key_id = "ABC123DEFG"
 issuer_id = "00000000-0000-0000-0000-000000000000"
 # timeout_minutes = 30
+
+[package]   # mdmsign pkg
+# identifier_prefix = "com.example.pkg"   # package ID = prefix + app bundle ID
+# install_location = "/Applications"
 ```
 
 > [!WARNING]
@@ -491,6 +546,7 @@ never touches the input unless you asked for `--in-place`.
 | --- | --- | --- |
 | Sign with a `.p12` (`.pkg` and `.mobileconfig`) | ✅ | ✅ |
 | Sign with a Keychain identity | ✅ | ❌ (no Keychain) |
+| `pkg` (build a package from an app) | ✅ | ❌ (needs `pkgbuild`) |
 | `notarize` / `staple` | ✅ | ✅ |
 | `verify` | ✅ including `spctl` / `pkgutil` system checks | ✅ without system checks |
 | `certs` | ✅ Keychain and `.p12` | ✅ `.p12` only |

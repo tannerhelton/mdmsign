@@ -18,6 +18,10 @@
 //! key_id = "ABC123DEFG"
 //! issuer_id = "00000000-0000-0000-0000-000000000000"
 //! # timeout_minutes = 30
+//!
+//! [package]   # mdmsign pkg
+//! # identifier_prefix = "com.example.pkg"   # package ID = prefix + app bundle ID
+//! # install_location = "/Applications"
 //! ```
 
 use std::path::{Path, PathBuf};
@@ -70,6 +74,8 @@ pub struct Config {
     pub signing: SigningConfig,
     #[serde(default)]
     pub notarize: NotarizeConfig,
+    #[serde(default)]
+    pub package: PackageConfig,
     /// Where the config was loaded from, if anywhere.
     #[serde(skip)]
     pub path: Option<PathBuf>,
@@ -95,6 +101,17 @@ pub struct NotarizeConfig {
     pub key_id: Option<String>,
     pub issuer_id: Option<String>,
     pub timeout_minutes: Option<u64>,
+}
+
+/// Settings for `mdmsign pkg`.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageConfig {
+    /// Prefix for default package identifiers, e.g. `com.example.pkg`; the
+    /// app's bundle ID is appended.
+    pub identifier_prefix: Option<String>,
+    /// Folder apps install into. Defaults to `/Applications`.
+    pub install_location: Option<PathBuf>,
 }
 
 impl Config {
@@ -213,6 +230,8 @@ mod tests {
             [notarize]
             key_id = "ABC123"
             issuer_id = "uuid"
+            [package]
+            identifier_prefix = "com.example.pkg"
             "#,
             Path::new("c.toml"),
         )
@@ -223,6 +242,10 @@ mod tests {
             Some("MY_PASSWORD")
         );
         assert_eq!(config.notarize.key_id.as_deref(), Some("ABC123"));
+        assert_eq!(
+            config.package.identifier_prefix.as_deref(),
+            Some("com.example.pkg")
+        );
     }
 
     #[test]

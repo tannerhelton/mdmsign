@@ -35,6 +35,9 @@ pub struct Cli {
 pub enum Command {
     /// Sign a .pkg installer or .mobileconfig profile.
     Sign(SignArgs),
+    /// Wrap an installed app in a signed .pkg, ready for an MDM.
+    #[command(visible_alias = "package")]
+    Pkg(PkgArgs),
     /// Notarize a signed .pkg with Apple, then staple the ticket.
     Notarize(NotarizeArgs),
     /// Staple an existing notarization ticket to a .pkg.
@@ -89,6 +92,13 @@ pub struct SignArgs {
     pub resign: bool,
 
     #[command(flatten)]
+    pub signing: SigningFlags,
+}
+
+/// Identity and signing options shared by `sign` and `pkg`.
+#[derive(Debug, Args)]
+pub struct SigningFlags {
+    #[command(flatten)]
     pub identity: IdentityFlags,
 
     /// Signing implementation.
@@ -102,6 +112,37 @@ pub struct SignArgs {
     /// Timestamp server [default: Apple's].
     #[arg(long, value_name = "URL")]
     pub timestamp_url: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct PkgArgs {
+    /// The app to package, e.g. "/Applications/Example.app".
+    pub app: PathBuf,
+
+    /// Where to write the signed package [default: <Name>-<version>-signed.pkg].
+    #[arg(short, long, value_name = "PATH")]
+    pub output: Option<PathBuf>,
+
+    /// Overwrite the output file if it exists.
+    #[arg(short, long)]
+    pub force: bool,
+
+    /// Package identifier (the install receipt ID). Keep it the same for
+    /// every version of the app [default: <bundle-id>.pkg, or
+    /// identifier_prefix + bundle ID from the config file].
+    #[arg(long, value_name = "ID")]
+    pub identifier: Option<String>,
+
+    /// Installer version [default: the app's CFBundleShortVersionString].
+    #[arg(long = "version", value_name = "VERSION")]
+    pub pkg_version: Option<String>,
+
+    /// Folder the app installs into [default: /Applications].
+    #[arg(long, value_name = "DIR")]
+    pub install_location: Option<PathBuf>,
+
+    #[command(flatten)]
+    pub signing: SigningFlags,
 }
 
 #[derive(Debug, Args)]

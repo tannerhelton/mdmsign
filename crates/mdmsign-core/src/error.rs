@@ -7,8 +7,8 @@
 use std::path::PathBuf;
 
 use crate::{
-    ArtifactKind, config::ConfigError, credentials::CredentialError, notarize::NotarizeError,
-    sign::pkg::PkgError, sign::profile::ProfileError, tool::ToolError,
+    ArtifactKind, app_pkg::PackageError, config::ConfigError, credentials::CredentialError,
+    notarize::NotarizeError, sign::pkg::PkgError, sign::profile::ProfileError, tool::ToolError,
 };
 
 /// Result type used throughout the library.
@@ -70,6 +70,9 @@ pub enum Error {
     #[error(transparent)]
     Notarize(#[from] NotarizeError),
 
+    #[error(transparent)]
+    Package(#[from] PackageError),
+
     #[error("{0} isn't implemented yet")]
     NotImplemented(&'static str),
 }
@@ -108,6 +111,7 @@ impl Error {
             Self::Pkg(e) => e.hint(),
             Self::Profile(e) => e.hint(),
             Self::Notarize(e) => e.hint(),
+            Self::Package(e) => e.hint(),
             Self::NotImplemented(_) => {
                 Some("This command is planned but not built yet. Watch the changelog for updates.".into())
             }

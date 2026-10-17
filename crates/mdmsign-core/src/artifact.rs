@@ -58,13 +58,18 @@ impl ArtifactKind {
             return Err(unsupported(
                 path,
                 "it's a directory",
-                if path
+                match path
                     .extension()
-                    .is_some_and(|e| e.eq_ignore_ascii_case("pkg"))
+                    .map(|e| e.to_string_lossy().to_ascii_lowercase())
+                    .as_deref()
                 {
-                    "This looks like an old bundle-style package. Rebuild it as a flat package with `pkgbuild` or `productbuild`, then sign that."
-                } else {
-                    "Pass the path to a .pkg or .mobileconfig file."
+                    Some("pkg") => {
+                        "This looks like an old bundle-style package. Rebuild it as a flat package with `pkgbuild` or `productbuild`, then sign that."
+                    }
+                    Some("app") => {
+                        "MDMs deploy apps as installer packages. Wrap the app in a signed .pkg with `mdmsign pkg <app>`."
+                    }
+                    _ => "Pass the path to a .pkg or .mobileconfig file.",
                 },
             ));
         }
@@ -238,5 +243,10 @@ mod tests {
         std::fs::create_dir(&bundle).unwrap();
         let err = ArtifactKind::detect(&bundle).unwrap_err();
         assert!(err.hint().unwrap().contains("bundle-style"));
+
+        let app = dir.path().join("Example.app");
+        std::fs::create_dir(&app).unwrap();
+        let err = ArtifactKind::detect(&app).unwrap_err();
+        assert!(err.hint().unwrap().contains("mdmsign pkg"));
     }
 }

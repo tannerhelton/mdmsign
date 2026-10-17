@@ -9,32 +9,51 @@ use mdmsign_core::{
 };
 
 use crate::{
-    cli::{BackendArg, SignArgs},
+    cli::{BackendArg, SignArgs, SigningFlags},
     commands::creds,
 };
 
-pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
-    // Check the input before credentials, so a typo in the path doesn't cost
-    // a Keychain lookup or a password prompt.
-    let kind = ArtifactKind::detect(&args.file)?;
-    let identity = creds::load_identity(&args.identity, config)?;
-
+/// Builds signing options from flags, falling back to the config file.
+pub fn sign_options(
+    flags: &SigningFlags,
+    force: bool,
+    resign: bool,
+    config: &Config,
+) -> SignOptions {
     let defaults = SignOptions::default();
-    let options = SignOptions {
-        timestamp: !args.no_timestamp && config.signing.timestamp.unwrap_or(true),
-        timestamp_url: args
+    SignOptions {
+        timestamp: !flags.no_timestamp && config.signing.timestamp.unwrap_or(true),
+        timestamp_url: flags
             .timestamp_url
+            .clone()
             .or_else(|| config.signing.timestamp_url.clone())
             .unwrap_or(defaults.timestamp_url),
-        backend: match args.backend {
+        backend: match flags.backend {
             Some(BackendArg::Auto) => Backend::Auto,
             Some(BackendArg::Native) => Backend::Native,
             Some(BackendArg::Apple) => Backend::Apple,
             None => config.signing.backend.unwrap_or_default(),
         },
-        resign: args.resign,
-        force: args.force,
-    };
+        resign,
+        force,
+    }
+}
+
+/// Tells the admin about a possible Keychain prompt.
+pub fn announce_keychain(identity: &mdmsign_core::SigningIdentity) {
+    if identity.is_keychain() {
+        eprintln!(
+            "macOS may ask you to allow access to the signing key; choose \"Always Allow\" to skip this next time."
+        );
+    }
+}
+
+pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
+    // Check the input before credentials, so a typo in the path doesn't cost
+    // a Keychain lookup or a password prompt.
+    let kind = ArtifactKind::detect(&args.file)?;
+    let identity = creds::load_identity(&args.signing.identity, config)?;
+    let options = sign_options(&args.signing, args.force, args.resign, config);
     let output = match (args.output, args.in_place) {
         (Some(path), _) => Output::Path(path),
         (None, true) => Output::InPlace,
@@ -46,11 +65,7 @@ pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
         args.file.display(),
         identity.common_name()
     );
-    if identity.is_keychain() {
-        eprintln!(
-            "macOS may ask you to allow access to the signing key; choose \"Always Allow\" to skip this next time."
-        );
-    }
+    announce_keychain(&identity);
     if options.timestamp && kind == ArtifactKind::FlatPackage {
         eprintln!("Adding a secure timestamp (needs an internet connection)…");
     }
