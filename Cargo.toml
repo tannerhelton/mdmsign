@@ -33,7 +33,7 @@ clap_complete = "=4.6.11"
 clap_mangen = "=0.3.3"
 cryptographic-message-syntax = "=0.27.0"
 hex = "=0.4.3"
-p12-keystore = "=0.2.1"
+p12-keystore = "=0.4.0"
 plist = "=1.10.1"
 rpassword = "=7.5.4"
 serde = { version = "=1.0.229", features = ["derive"] }
