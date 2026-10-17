@@ -77,7 +77,7 @@ they check:
 | `rustdoc` | `mdmsign-core` docs build without warnings | `RUSTDOCFLAGS="-D warnings" cargo doc -p mdmsign-core --no-deps --all-features` |
 | `cargo package` | Both crates can be published to crates.io | `cargo package --workspace --locked` |
 | `cargo deny` | Known vulnerabilities (RustSec), licenses, duplicate sources ([`deny.toml`](deny.toml)) | `cargo deny check` |
-| `zizmor` | Security problems in the workflows and `dependabot.yml` | `zizmor .github/workflows/ci.yml .github/workflows/audit.yml .github/dependabot.yml` |
+| `zizmor` | Security problems in the workflows and `dependabot.yml` | `zizmor .github/workflows/ci.yml .github/workflows/audit.yml .github/workflows/publish-crates.yml .github/dependabot.yml` |
 
 The advisories check doesn't block PRs, because new advisories appear
 without any change here. [`audit.yml`](.github/workflows/audit.yml) runs it
@@ -209,7 +209,9 @@ cargo-dist) from `dist-workspace.toml`. Pushing a version tag runs
 `.github/workflows/release.yml`, which builds archives for
 `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`
 and `aarch64-unknown-linux-gnu`, creates the GitHub Release with a shell
-installer and checksums, and pushes a Homebrew formula to the tap.
+installer, checksums and build provenance attestations, pushes a Homebrew
+formula to the tap, and publishes both crates to crates.io
+([`publish-crates.yml`](.github/workflows/publish-crates.yml)).
 
 **One-time setup:**
 
@@ -220,6 +222,15 @@ installer and checksums, and pushes a Homebrew formula to the tap.
    write** on `tannerhelton/homebrew-tap` only.
 3. Add it to this repository as an Actions secret named
    **`HOMEBREW_TAP_TOKEN`**. The `publish-homebrew-formula` job uses it.
+4. crates.io uses [trusted publishing](https://crates.io/docs/trusted-publishing)
+   (no token), which can only be set up for a crate that already exists. So
+   publish the first version by hand *before* pushing its tag:
+   `cargo publish -p mdmsign-core`, then `cargo publish -p mdmsign`. Then,
+   for each crate on crates.io, go to **Settings → Trusted Publishing** and add
+   GitHub repository `tannerhelton/mdmsign` with workflow **`release.yml`**
+   (the calling workflow, not `publish-crates.yml`). The publish job skips
+   versions that are already on crates.io, so the hand-published release
+   still succeeds.
 
 **Each release:**
 
@@ -230,9 +241,10 @@ installer and checksums, and pushes a Homebrew formula to the tap.
    version = "=X.Y.Z" }` pin in `[workspace.dependencies]`, then run
    `cargo build` to update `Cargo.lock`.
 3. Run `dist plan` to check what will be built. Merge to `main`.
-4. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-5. After the release workflow succeeds, publish to crates.io (dist doesn't):
-   `cargo publish -p mdmsign-core`, then `cargo publish -p mdmsign`.
+4. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`. Prereleases
+   (`vX.Y.Z-rc.1`) go to GitHub Releases only, not Homebrew or crates.io.
+5. Check the release: `gh attestation verify <archive> --repo
+   tannerhelton/mdmsign` should pass for each downloaded archive.
 
 **Changing the release setup:** edit `dist-workspace.toml`, then run
 `dist generate` to regenerate `release.yml`. Don't hand-edit the workflow.

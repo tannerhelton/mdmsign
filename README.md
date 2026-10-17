@@ -92,6 +92,14 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tannerhelton/mdmsign/re
 
 The installer puts `mdmsign` in `~/.cargo/bin`.
 
+Every release archive has a GitHub [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations),
+so you can check that it was built from this repository by its release
+workflow:
+
+```sh
+gh attestation verify mdmsign-aarch64-apple-darwin.tar.xz --repo tannerhelton/mdmsign
+```
+
 ## Quick start
 
 Every command has `--help`. Running `mdmsign --help` also lists the

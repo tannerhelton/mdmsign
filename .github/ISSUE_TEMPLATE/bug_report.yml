@@ -43,7 +43,7 @@ body:
     attributes:
       label: mdmsign version
       description: Output of `mdmsign --version`.
-      placeholder: mdmsign 0.1.0
+      placeholder: mdmsign 0.1.0 (1a2b3c4d5e)
     validations:
       required: true
   - type: dropdown
