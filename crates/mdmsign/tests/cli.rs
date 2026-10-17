@@ -116,3 +116,20 @@ fn config_with_password_is_refused() {
         .stderr(predicate::str::contains("contains a secret"))
         .stderr(predicate::str::contains("hunter2").not());
 }
+
+#[test]
+fn version_includes_the_commit_when_known() {
+    let commit = env!("MDMSIGN_COMMIT");
+    // Empty, or " (<10 hex digits>)" (see build.rs).
+    if let Some(sha) = commit.strip_prefix(" (").and_then(|s| s.strip_suffix(')')) {
+        assert_eq!(sha.len(), 10, "{commit:?}");
+        assert!(sha.bytes().all(|b| b.is_ascii_hexdigit()), "{commit:?}");
+    } else {
+        assert_eq!(commit, "");
+    }
+    mdmsign()
+        .arg("--version")
+        .assert()
+        .success()
+        .stdout(format!("mdmsign {}{commit}\n", env!("CARGO_PKG_VERSION")));
+}
