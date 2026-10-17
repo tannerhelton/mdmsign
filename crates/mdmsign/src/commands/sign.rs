@@ -48,7 +48,8 @@ pub fn run(args: SignArgs, config: &Config) -> anyhow::Result<ExitCode> {
             "macOS may ask you to allow access to the signing key; choose \"Always Allow\" to skip this next time."
         );
     }
-    if options.timestamp {
+    if options.timestamp && ArtifactKind::detect(&args.file).ok() == Some(ArtifactKind::FlatPackage)
+    {
         eprintln!("Adding a secure timestamp (needs an internet connection)…");
     }
 

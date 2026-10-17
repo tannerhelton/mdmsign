@@ -38,7 +38,9 @@ pub enum Backend {
 /// Options for signing.
 #[derive(Clone, Debug)]
 pub struct SignOptions {
-    /// Add a secure timestamp. Required for notarization; needs internet.
+    /// Add a secure timestamp to `.pkg` signatures. Required for
+    /// notarization; needs internet. Profiles are never timestamped: macOS
+    /// ignores timestamps on them.
     pub timestamp: bool,
     pub timestamp_url: String,
     pub backend: Backend,
@@ -226,7 +228,7 @@ pub fn sign_file(
         kind,
         backend: signer.name(),
         signer: identity.common_name(),
-        timestamped: options.timestamp,
+        timestamped: options.timestamp && kind == ArtifactKind::FlatPackage,
         warnings,
     })
 }
