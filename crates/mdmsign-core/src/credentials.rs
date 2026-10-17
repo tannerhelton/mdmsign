@@ -132,6 +132,8 @@ pub enum CredentialError {
         field: &'static str,
         flag: &'static str,
         env: &'static str,
+        /// The key under `[notarize]` in the config file.
+        config_key: &'static str,
     },
 
     #[error("couldn't read the App Store Connect API key {}: {source}", path.display())]
@@ -175,9 +177,8 @@ impl CredentialError {
             Self::MissingPassword { .. } => format!("Set {} or run mdmsign in a terminal so it can prompt for the password.", vars::P12_PASSWORD),
             Self::WrongCertificateType { fix, .. } => fix.clone(),
             Self::CertificateExpired { .. } | Self::CertificateNotYetValid { .. } => "Create a new certificate at https://developer.apple.com/account/resources/certificates and install it with its private key. Check your Mac's clock if the dates look wrong.".into(),
-            Self::MissingAsc { field, flag, env } => format!(
-                "Pass {flag}, set {env}, or set `{}` under [notarize] in the config file. Create an API key in App Store Connect under Users and Access > Integrations > App Store Connect API; the Issuer ID is shown above the key list.",
-                field.replace(' ', "_")
+            Self::MissingAsc { flag, env, config_key, .. } => format!(
+                "Pass {flag}, set {env}, or set `{config_key}` under [notarize] in the config file. Create an API key in App Store Connect under Users and Access > Integrations > App Store Connect API; the Issuer ID is shown above the key list."
             ),
             Self::AscKeyRead { .. } => "Check the path to the AuthKey_XXXXXXXXXX.p8 file. Apple only lets you download it once; if it's lost, revoke it and create a new key.".into(),
             Self::AscKeyInvalid { .. } => "Use the .p8 file downloaded from App Store Connect, unmodified. It starts with -----BEGIN PRIVATE KEY-----.".into(),
@@ -351,6 +352,7 @@ pub fn load_asc_credentials(
                 field: "API key",
                 flag: "--key",
                 env: vars::ASC_KEY_PATH,
+                config_key: "key_path",
             });
         }
     };
@@ -377,6 +379,7 @@ pub fn load_asc_credentials(
             field: "key ID",
             flag: "--key-id",
             env: vars::ASC_KEY_ID,
+            config_key: "key_id",
         })?;
     let issuer_id = args
         .issuer_id
@@ -387,6 +390,7 @@ pub fn load_asc_credentials(
             field: "issuer ID",
             flag: "--issuer",
             env: vars::ASC_ISSUER_ID,
+            config_key: "issuer_id",
         })?;
 
     Ok(AscCredentials {
@@ -527,6 +531,8 @@ mod tests {
         let err =
             load_asc_credentials(&AscArgs::default(), &env_vars, &Config::default()).unwrap_err();
         assert!(err.to_string().contains("issuer ID"));
-        assert!(err.hint().unwrap().contains("MDMSIGN_ASC_ISSUER_ID"));
+        let hint = err.hint().unwrap();
+        assert!(hint.contains("MDMSIGN_ASC_ISSUER_ID"));
+        assert!(hint.contains("`issuer_id` under [notarize]"));
     }
 }
