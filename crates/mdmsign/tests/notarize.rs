@@ -93,13 +93,41 @@ fn notarize_profile_is_refused() {
 }
 
 #[test]
-fn notarize_never_prints_the_key() {
+fn invalid_api_key_exits_2_without_printing_it() {
     let dir = tempfile::tempdir().unwrap();
     let pkg = mdmsign_core::testutil::copy_fixture("unsigned.pkg", dir.path());
+    // The key is checked before anything is uploaded.
     with_fake_asc(mdmsign().arg("notarize").arg(&pkg))
         .assert()
-        .code(1)
+        .code(2)
+        .stderr(predicate::str::contains(
+            "App Store Connect API key from MDMSIGN_ASC_KEY can't be used",
+        ))
+        .stderr(predicate::str::contains("AuthKey_XXXXXXXXXX.p8"))
         .stderr(predicate::str::contains("AAAA").not());
+}
+
+#[test]
+fn invalid_api_key_file_exits_2() {
+    let dir = tempfile::tempdir().unwrap();
+    let pkg = mdmsign_core::testutil::copy_fixture("unsigned.pkg", dir.path());
+    let key = dir.path().join("AuthKey_ABC123DEFG.p8");
+    std::fs::write(
+        &key,
+        "-----BEGIN PRIVATE KEY-----\nbm90IGEga2V5\n-----END PRIVATE KEY-----\n",
+    )
+    .unwrap();
+    mdmsign()
+        .arg("notarize")
+        .arg(&pkg)
+        .arg("--key")
+        .arg(&key)
+        .args(["--issuer", "00000000-0000-0000-0000-000000000000"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "AuthKey_ABC123DEFG.p8 can't be used",
+        ));
 }
 
 #[test]

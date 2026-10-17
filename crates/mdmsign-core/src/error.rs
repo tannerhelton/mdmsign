@@ -121,7 +121,7 @@ impl Error {
         matches!(
             self,
             Self::Credential(_) | Self::Config(_) | Self::BackendMismatch { .. }
-        )
+        ) || matches!(self, Self::Notarize(e) if e.is_usage_error())
     }
 }
 

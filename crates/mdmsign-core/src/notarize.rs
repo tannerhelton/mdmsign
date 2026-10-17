@@ -122,6 +122,22 @@ impl NotarizeError {
             _ => None,
         }
     }
+
+    /// True if the App Store Connect credentials are wrong (the CLI exits
+    /// with status 2), rather than the file, Apple or the network.
+    pub fn is_usage_error(&self) -> bool {
+        match self {
+            Self::Auth { .. } | Self::InvalidApiKey { .. } => true,
+            Self::NotAPackage { .. }
+            | Self::Unsigned { .. }
+            | Self::Network { .. }
+            | Self::Api { .. }
+            | Self::Rejected { .. }
+            | Self::Timeout { .. }
+            | Self::NoTicket { .. }
+            | Self::Staple { .. } => false,
+        }
+    }
 }
 
 fn rejection_hint(issues: &[NotaryIssue]) -> String {
@@ -271,10 +287,14 @@ pub fn notarize(
     options: &NotarizeOptions,
     progress: &mut dyn FnMut(&str),
 ) -> Result<NotarizeOutcome> {
-    check_signed_package(path, "notarize")?;
+    // Cheapest and most fundamental problems first, all before any upload:
+    // the wrong kind of file, then unusable credentials, then a missing
+    // signature.
+    ensure_package(path, "notarize")?;
     let service = AppleNotary {
         notarizer: notarizer(credentials)?,
     };
+    ensure_signed(path)?;
     run(
         &service,
         path,
@@ -290,15 +310,7 @@ pub fn notarize(
 /// Stapling again is safe: if the file already carries the current ticket
 /// nothing changes, and an outdated ticket is replaced.
 pub fn staple(path: &Path) -> Result<StapleOutcome> {
-    let kind = ArtifactKind::detect(path)?;
-    if kind != ArtifactKind::FlatPackage {
-        return Err(NotarizeError::NotAPackage {
-            path: path.to_path_buf(),
-            kind,
-            action: "staple",
-        }
-        .into());
-    }
+    ensure_package(path, "staple")?;
     let staple_error = |detail: String| NotarizeError::Staple {
         path: path.to_path_buf(),
         detail,
@@ -341,8 +353,8 @@ pub fn staple(path: &Path) -> Result<StapleOutcome> {
     Ok(StapleOutcome::Stapled)
 }
 
-/// Checks that `path` is a `.pkg` and, if that can be told, that it's signed.
-fn check_signed_package(path: &Path, action: &'static str) -> Result<()> {
+/// Checks that `path` is a flat package.
+fn ensure_package(path: &Path, action: &'static str) -> Result<()> {
     let kind = ArtifactKind::detect(path)?;
     if kind != ArtifactKind::FlatPackage {
         return Err(NotarizeError::NotAPackage {
@@ -352,7 +364,12 @@ fn check_signed_package(path: &Path, action: &'static str) -> Result<()> {
         }
         .into());
     }
-    match is_signed(path, kind) {
+    Ok(())
+}
+
+/// Checks that a `.pkg` is signed, when that can be told.
+fn ensure_signed(path: &Path) -> Result<()> {
+    match is_signed(path, ArtifactKind::FlatPackage) {
         Ok(true) | Err(Error::NotImplemented(_)) => Ok(()),
         Ok(false) => Err(NotarizeError::Unsigned {
             path: path.to_path_buf(),
@@ -1182,6 +1199,7 @@ mod tests {
         let unauthorized = "appstore connect error:\nPOST https://appstoreconnect.apple.com/notary/v2/submissions\n{\n  \"errors\": [\n    {\n      \"code\": \"NOT_AUTHORIZED\",\n      \"detail\": \"Provide a properly configured and signed bearer token, and make sure that it has not expired.\",\n      \"status\": \"401\",\n      \"title\": \"Authentication credentials are missing or invalid.\"\n    }\n  ]\n}";
         let err = classify("upload", &message(unauthorized));
         assert!(matches!(err, NotarizeError::Auth { .. }), "{err:?}");
+        assert!(err.is_usage_error());
         assert!(err.to_string().contains("HTTP 401"));
         let hint = err.hint().unwrap();
         assert!(
@@ -1248,6 +1266,7 @@ mod tests {
         let rsa = pem_for(x509_certificate::KeyAlgorithm::Rsa);
         let err = notarizer(&asc_credentials(rsa)).err().unwrap();
         assert!(err.to_string().contains("ECDSA P-256"), "{err}");
+        assert!(err.is_usage_error());
         assert!(err.hint().unwrap().contains(".p8"));
 
         let garbage = "-----BEGIN PRIVATE KEY-----\nnot base64!\n-----END PRIVATE KEY-----\n";
@@ -1255,6 +1274,20 @@ mod tests {
         assert!(err.to_string().contains("base64"), "{err}");
         // The key material itself never appears in messages.
         assert!(!format!("{err:?}").contains("not base64!"));
+    }
+
+    #[test]
+    fn unsigned_package_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let pkg = crate::testutil::copy_fixture("unsigned.pkg", dir.path());
+        match ensure_signed(&pkg) {
+            Err(err @ Error::Notarize(NotarizeError::Unsigned { .. })) => {
+                assert!(err.hint().unwrap().contains("mdmsign sign"), "{err}");
+            }
+            // Until .pkg signature detection lands, the check is skipped.
+            Ok(()) => {}
+            Err(other) => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]

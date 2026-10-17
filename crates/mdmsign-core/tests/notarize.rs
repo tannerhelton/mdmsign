@@ -61,21 +61,16 @@ fn profiles_are_not_notarized() {
 }
 
 #[test]
-fn unsigned_package_is_refused_before_upload() {
+fn bad_api_key_is_a_usage_error_before_upload() {
     let dir = tempfile::tempdir().unwrap();
     let pkg = testutil::copy_fixture("unsigned.pkg", dir.path());
     let err = notarize_err(&pkg);
-    match &err {
-        // Once signature detection exists, unsigned packages stop here.
-        Error::Notarize(NotarizeError::Unsigned { .. }) => {
-            assert!(err.hint().unwrap().contains("mdmsign sign"), "{err}");
-        }
-        // Until then the (deliberately broken) key stops it, still offline.
-        Error::Notarize(NotarizeError::InvalidApiKey { .. }) => {
-            assert!(err.hint().unwrap().contains(".p8"));
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
+    assert!(
+        matches!(err, Error::Notarize(NotarizeError::InvalidApiKey { .. })),
+        "{err:?}"
+    );
+    assert!(err.is_usage_error());
+    assert!(err.hint().unwrap().contains(".p8"));
     // The key never shows up in messages.
     assert!(!format!("{err:?}").contains("AAAA"));
 }
@@ -154,6 +149,9 @@ fn hints_explain_what_to_do() {
         detail: "dns error".into(),
     };
     assert!(network.hint().unwrap().contains("HTTPS_PROXY"));
+    assert!(!network.is_usage_error());
+    assert!(auth.is_usage_error());
+    assert!(!timeout.is_usage_error());
 }
 
 /// Notarizes and staples a real signed package. Needs:
