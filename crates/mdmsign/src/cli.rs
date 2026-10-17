@@ -46,6 +46,10 @@ pub enum Command {
     Verify(VerifyArgs),
     /// List signing identities and what each can sign.
     Certs(CertsArgs),
+    /// Print a shell completion script.
+    Completions(CompletionsArgs),
+    /// Print the man page, or write one per command to a directory.
+    Man(ManArgs),
 }
 
 #[derive(Debug, Args)]
@@ -242,6 +246,26 @@ pub struct CertsArgs {
     /// Print the list as JSON.
     #[arg(long)]
     pub json: bool,
+}
+
+#[derive(Debug, Args)]
+#[command(after_help = "\
+Examples:
+  mdmsign completions zsh > \"${fpath[1]}/_mdmsign\"
+  mdmsign completions bash > ~/.local/share/bash-completion/completions/mdmsign
+  mdmsign completions fish > ~/.config/fish/completions/mdmsign.fish")]
+pub struct CompletionsArgs {
+    /// The shell to generate completions for.
+    #[arg(value_enum)]
+    pub shell: clap_complete::Shell,
+}
+
+#[derive(Debug, Args)]
+pub struct ManArgs {
+    /// Write mdmsign.1 and a page for each command (mdmsign-sign.1, ...) to
+    /// this directory instead of printing mdmsign.1.
+    #[arg(long, value_name = "DIR")]
+    pub out_dir: Option<PathBuf>,
 }
 
 #[cfg(test)]

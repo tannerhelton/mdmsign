@@ -92,6 +92,13 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tannerhelton/mdmsign/re
 
 The installer puts `mdmsign` in `~/.cargo/bin`.
 
+**Shell completions and man pages.** mdmsign prints both. For example:
+
+```sh
+mdmsign completions zsh > "${fpath[1]}/_mdmsign"     # also bash, fish, elvish, powershell
+mdmsign man --out-dir ~/.local/share/man/man1        # then `man mdmsign-sign`
+```
+
 ## Quick start
 
 Every command has `--help`. Running `mdmsign --help` also lists the
