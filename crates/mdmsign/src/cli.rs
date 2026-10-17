@@ -136,9 +136,10 @@ pub struct NotarizeArgs {
     #[arg(long)]
     pub no_staple: bool,
 
-    /// Minutes to wait for Apple's verdict.
-    #[arg(long, value_name = "MINUTES", default_value_t = 30)]
-    pub timeout: u64,
+    /// Minutes to wait for Apple's verdict [default: 30, or `timeout_minutes`
+    /// under [notarize] in the config file].
+    #[arg(long, value_name = "MINUTES")]
+    pub timeout: Option<u64>,
 
     /// Print the result as JSON.
     #[arg(long)]
@@ -149,6 +150,10 @@ pub struct NotarizeArgs {
 pub struct StapleArgs {
     /// The notarized .pkg to staple.
     pub file: PathBuf,
+
+    /// Print the result as JSON.
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Args)]
