@@ -21,3 +21,6 @@ install-path = "CARGO_HOME"
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
+# Sign macOS binaries with the Developer ID Application certificate in the
+# CODESIGN_CERTIFICATE, CODESIGN_CERTIFICATE_PASSWORD and CODESIGN_IDENTITY secrets
+macos-sign = true
