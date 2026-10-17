@@ -13,7 +13,7 @@ use std::{
     path::Path,
 };
 
-use apple_codesign::{AppleCertificate, AppleCodesignError, stapling::Stapler};
+use apple_codesign::{AppleCertificate, AppleCodesignError, KnownCertificate, stapling::Stapler};
 use apple_xar::{
     format::XarChecksum,
     reader::XarReader,
@@ -463,12 +463,27 @@ fn certificate_type_check(leaf: &CapturedX509Certificate) -> Check {
 /// What we know about the signature's secure timestamp.
 #[derive(Debug)]
 enum TimestampInfo {
-    /// A valid timestamp token, and the time it vouches for if readable.
-    Valid(Option<DateTime<Utc>>),
+    /// A token from Apple's timestamp authority over this signature, and the
+    /// time it vouches for.
+    Valid(DateTime<Utc>),
+    /// A well-formed token over this signature from a timestamp authority
+    /// other than Apple's. Anyone can run one, so the time it claims isn't
+    /// trusted.
+    Untrusted {
+        time: DateTime<Utc>,
+        tsa: String,
+    },
     Invalid(String),
     Missing,
 }
 
+/// Reads and checks the signature's timestamp token.
+///
+/// A token only counts if all of these hold: its own signature is valid, it
+/// is over this signature's value (its message imprint), and it was issued
+/// by Apple's timestamp authority. Otherwise an old token could be copied
+/// from another package, or one could be minted with any key, to make a
+/// signature by an expired certificate look as if it was made in time.
 fn timestamp_info(cms: Option<&SignedData>) -> TimestampInfo {
     let Some(signer) = cms.and_then(|c| c.signers().next()) else {
         return TimestampInfo::Missing;
@@ -483,12 +498,53 @@ fn timestamp_info(cms: Option<&SignedData>) -> TimestampInfo {
         Ok(None) => return TimestampInfo::Invalid("the timestamp token has no signer".into()),
         Err(e) => return TimestampInfo::Invalid(e.to_string()),
     }
-    let time = token.signed_content().and_then(|content| {
-        Constructed::decode(content, Mode::Ber, TstInfo::take_from)
-            .ok()
-            .map(|info| DateTime::<Utc>::from(info.gen_time))
-    });
-    TimestampInfo::Valid(time)
+    let Some(info) = token
+        .signed_content()
+        .and_then(|content| Constructed::decode(content, Mode::Ber, TstInfo::take_from).ok())
+    else {
+        return TimestampInfo::Invalid("the timestamp token's contents can't be read".into());
+    };
+
+    let imprint = &info.message_imprint;
+    let matches_signature =
+        DigestAlgorithm::try_from(&imprint.hash_algorithm).is_ok_and(|digest| {
+            digest.digest_data(signer.signature()) == imprint.hashed_message.to_bytes().as_ref()
+        });
+    if !matches_signature {
+        return TimestampInfo::Invalid(
+            "the timestamp token was issued for a different signature".into(),
+        );
+    }
+
+    let time = DateTime::<Utc>::from(info.gen_time);
+    let Some(tsa) = token
+        .signers()
+        .next()
+        .and_then(|tsa_signer| sign_profile::signer_certificate(&token, tsa_signer))
+    else {
+        return TimestampInfo::Invalid(
+            "the timestamp authority's certificate can't be identified".into(),
+        );
+    };
+    if issued_by_apple_timestamp_ca(&tsa) {
+        TimestampInfo::Valid(time)
+    } else {
+        TimestampInfo::Untrusted {
+            time,
+            tsa: tsa
+                .subject_common_name()
+                .unwrap_or_else(|| "a timestamp authority without a name".into()),
+        }
+    }
+}
+
+/// Whether `tsa` was issued by the Apple Timestamp Certification Authority,
+/// checked against the copy of that CA's certificate built into
+/// apple-codesign. Chaining to an Apple root through another CA isn't
+/// enough: every Developer ID certificate does that.
+fn issued_by_apple_timestamp_ca(tsa: &CapturedX509Certificate) -> bool {
+    let timestamp_ca: &CapturedX509Certificate = &KnownCertificate::Timestamp;
+    tsa.verify_signed_by_certificate(timestamp_ca).is_ok()
 }
 
 fn validity_check(
@@ -508,7 +564,7 @@ fn validity_check(
         );
     }
     if now > not_after {
-        if let TimestampInfo::Valid(Some(signed_at)) = timestamp
+        if let TimestampInfo::Valid(signed_at) = timestamp
             && *signed_at >= not_before
             && *signed_at <= not_after
         {
@@ -568,11 +624,22 @@ fn chain_check(leaf: &CapturedX509Certificate) -> Check {
 fn timestamp_check(timestamp: &TimestampInfo, file_arg: &str) -> Check {
     let resign = format!("sign again without --no-timestamp: `mdmsign sign --resign {file_arg}`");
     match timestamp {
-        TimestampInfo::Valid(Some(time)) => Check::pass(
+        TimestampInfo::Valid(time) => Check::pass(
             CheckId::Timestamp,
             format!("Secure timestamp: {}", time.format("%Y-%m-%d %H:%M:%S UTC")),
         ),
-        TimestampInfo::Valid(None) => Check::pass(CheckId::Timestamp, "Has a secure timestamp"),
+        TimestampInfo::Untrusted { time, tsa } => Check::warn(
+            CheckId::Timestamp,
+            "The timestamp isn't from Apple's timestamp server",
+            format!(
+                "Notarization and Gatekeeper expect a timestamp from Apple; {}",
+                resign.replace("without --no-timestamp", "without --timestamp-url")
+            ),
+        )
+        .with_detail(format!(
+            "{tsa} says it was signed on {}. mdmsign doesn't rely on that date.",
+            time.format("%Y-%m-%d %H:%M:%S UTC")
+        )),
         TimestampInfo::Invalid(detail) => Check::fail(
             CheckId::Timestamp,
             "The secure timestamp is invalid",
@@ -780,7 +847,6 @@ fn pkgutil_status(path: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn cms_leaf_must_be_unambiguous() {
         use cryptographic_message_syntax::{SignedDataBuilder, SignerBuilder};
@@ -847,6 +913,16 @@ mod tests {
     }
 
     #[test]
+    fn only_apple_timestamp_authority_is_trusted() {
+        let test = crate::testutil::TestIdentity::generate(CertKind::DeveloperIdInstaller);
+        assert!(!issued_by_apple_timestamp_ca(&test.certificate));
+        // Apple-issued, but by another CA.
+        let developer_id_ca: &CapturedX509Certificate = &KnownCertificate::DeveloperIdG2;
+        assert!(developer_id_ca.chains_to_apple_root_ca());
+        assert!(!issued_by_apple_timestamp_ca(developer_id_ca));
+    }
+
+    #[test]
     fn expired_certificate_needs_timestamp() {
         let test = crate::testutil::TestIdentity::generate(CertKind::DeveloperIdInstaller);
         let cert = &test.certificate;
@@ -857,9 +933,17 @@ mod tests {
         assert_eq!(check.status, Status::Fail);
         assert!(check.summary.contains("expired"), "{}", check.summary);
 
-        let check = validity_check(cert, &TimestampInfo::Valid(Some(during)), "a.pkg", later);
+        let check = validity_check(cert, &TimestampInfo::Valid(during), "a.pkg", later);
         assert_eq!(check.status, Status::Pass);
         assert!(check.detail.unwrap().contains("signed on"));
+
+        // A timestamp from anyone but Apple doesn't vouch for the date.
+        let untrusted = TimestampInfo::Untrusted {
+            time: during,
+            tsa: "Example TSA".into(),
+        };
+        let check = validity_check(cert, &untrusted, "a.pkg", later);
+        assert_eq!(check.status, Status::Fail);
 
         let before = cert.validity_not_before() - chrono::Duration::days(1);
         let check = validity_check(cert, &TimestampInfo::Missing, "a.pkg", before);
