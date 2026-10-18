@@ -25,3 +25,6 @@ hosting = "github"
 install-updater = false
 # Trusted publishing to crates.io needs an OIDC token
 github-custom-job-permissions = { "publish-crates" = { contents = "read", id-token = "write" } }
+# Sign macOS binaries with the Developer ID Application certificate in the
+# CODESIGN_CERTIFICATE, CODESIGN_CERTIFICATE_PASSWORD and CODESIGN_IDENTITY secrets
+macos-sign = true

@@ -252,4 +252,18 @@ On pull requests the release workflow runs `dist plan`, which fails if the
 workflow is out of date. To upgrade dist, install the new version and run
 `dist init`.
 
-Release binaries aren't code-signed or notarized yet. That's planned.
+**macOS code signing.** The macOS binaries are signed with a Developer ID
+Application certificate (dist's `macos-sign`). They aren't notarized yet. Set
+these Actions secrets before tagging, because a missing secret reaches dist
+as an empty value and fails the build rather than skipping signing:
+
+- **`CODESIGN_CERTIFICATE`**: the Developer ID *Application* `.p12`,
+  base64-encoded (`base64 -i cert.p12 | pbcopy`). Not the Installer
+  certificate, which signs `.pkg` files.
+- **`CODESIGN_CERTIFICATE_PASSWORD`**: its password.
+- **`CODESIGN_IDENTITY`**: the certificate's name, e.g. `Developer ID
+  Application: Example Corp (ABCDE12345)`. `mdmsign certs --p12 cert.p12`
+  shows it.
+
+Check a release with `codesign -dv --verbose=2 mdmsign` on the extracted
+binary: it should show your Developer ID Application authority.
